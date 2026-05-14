@@ -1,41 +1,34 @@
 name: ci
 
 on:
-  workflow_dispatch: 
+  workflow_dispatch:
 
 jobs:
   oak:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        version: [canary]
+
     steps:
-      - name: clone repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: install deno
+      - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
-          deno-version: ${{ matrix.version }}
+          deno-version: canary
 
-      - name: check format
+      - name: Format check
         run: deno fmt --check
 
-      - name: check linting
+      - name: Lint
         run: deno lint
 
-      - name: run tests generating coverage
-        run: deno task test:coverage
+      - name: Test with coverage
+        run: deno test --coverage=coverage
 
-      - name: upload test results
-        uses: codecov/test-results-action@v1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Generate lcov
+        run: deno coverage coverage --lcov > cov.lcov
 
-      - name: generate lcov
-        run: deno task coverage > cov.lcov
-
-      - name: upload coverage
+      - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
           files: ./cov.lcov
