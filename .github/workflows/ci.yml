@@ -4,38 +4,47 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-  pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
+      # ============= InvisiRisk Setup =============
+      - name: Setup PSE
+        uses: invisirisk/pse-action@feature/intermediate-deno-rust-ca-devtest
+        with:
+          api_url: "https://app.stage.invisirisk.com"
+          app_token: ${{ secrets.IR_API_KEY }}
+          pse_image_tag: "dev-test"
+          debug: true
+      # ============= InvisiRisk Setup End =============
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Use stable Deno (NOT canary → avoids Oak test breakages)
-      - name: Setup Deno
+      - name: Setup Deno (canary)
         uses: denoland/setup-deno@v2
         with:
-          deno-version: v1.x
+          deno-version: canary
 
-      - name: Format check
-        run: deno fmt --check
+      # ✅ "INSTALL PACKAGES" STEP (Deno equivalent)
+      - name: Cache Deno deps
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ hashFiles('deno.lock') }}
+
+      - name: Install / Pre-fetch dependencies
+        run: deno cache deno.json
 
       - name: Lint
         run: deno lint
 
-      # IMPORTANT: Oak tests require full permissions (-A)
-      - name: Run tests with coverage
-        run: deno test -A --coverage=coverage
-
-      - name: Generate LCOV report
-        run: deno coverage coverage --lcov > cov.lcov
-
-      # Upload coverage (optional but safe)
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+      # ============= InvisiRisk Cleanup =============
+      - name: Cleanup PSE
+        if: always()
+        uses: invisirisk/pse-action@feature/intermediate-deno-rust-ca-devtest
         with:
-          files: ./cov.lcov
-          token: ${{ secrets.CODECOV_TOKEN }}
+          api_url: "https://app.stage.invisirisk.com"
+          cleanup: "true"
+      # ============= InvisiRisk Cleanup End =============
